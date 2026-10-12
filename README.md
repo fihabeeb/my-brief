@@ -22,7 +22,7 @@ Built phase-by-phase. See the build plan for the full roadmap.
 | Phase | Feature | Status |
 |------|---------|--------|
 | 0 | Foundations — project, theming, navigation, Supabase auth | ✅ done |
-| 1 | Tasks + reminders (local Drift DB + Supabase sync) | ⬜ |
+| 1 | Tasks + reminders (local Drift DB + Supabase sync) | ✅ done |
 | 2 | Notifications (reminders/tasks, tray + auto-start) | ⬜ |
 | 3 | Dashboard | ⬜ |
 | 4 | Email integration (Gmail, then Microsoft) | ⬜ |

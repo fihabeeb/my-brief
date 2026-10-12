@@ -15,6 +15,11 @@ class SupabaseService {
 
   static GoTrueClient get auth => client.auth;
 
+  /// Stable user id for scoping local rows; falls back to a local id so the
+  /// app is fully usable offline / before sign-in.
+  static String get currentUserId =>
+      isConfigured ? (auth.currentUser?.id ?? 'local') : 'local';
+
   /// Initialises Supabase only when configured. Returns true when the backend
   /// is available; false puts the app into "unconfigured" mode (Setup screen).
   static Future<bool> initIfConfigured() async {

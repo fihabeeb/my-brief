@@ -7,7 +7,9 @@ import '../core/supabase/supabase_service.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/setup_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/reminders/reminders_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/tasks/tasks_screen.dart';
 import 'app_shell.dart';
 
 /// Re-evaluates GoRouter redirects whenever auth state changes.
@@ -60,6 +62,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/tasks', builder: (_, _) => const TasksScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),
             ],
           ),
           StatefulShellBranch(
