@@ -16,6 +16,15 @@ jobs:
         with:
           channel: stable
           cache: true
+      # tray_manager -> nativeapi -> cnativeapi declares a native-asset build
+      # hook. `flutter test` builds native assets for the Linux host, which
+      # needs GTK3/X11/Xi dev headers. The Android APK build uses the NDK and
+      # does not need these, but the test step runs first on this runner.
+      - name: Install Linux native build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev libx11-dev libxi-dev liblzma-dev
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
