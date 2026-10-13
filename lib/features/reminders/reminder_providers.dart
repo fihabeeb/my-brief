@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/data/reminder_repository.dart';
+import '../../core/data/reminder_timing.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/database_provider.dart';
 
@@ -27,7 +28,11 @@ class ReminderBoard {
 }
 
 /// Effective fire instant (a snoozed reminder fires at `snoozedUntil`).
-DateTime effectiveFire(Reminder r) => r.snoozedUntil ?? r.remindAt;
+///
+/// Delegates to the shared rule in `reminder_timing.dart` so the dashboard can
+/// never disagree with what the notification scheduler actually fires.
+DateTime effectiveFire(Reminder r) =>
+    effectiveFireAt(remindAt: r.remindAt, snoozedUntil: r.snoozedUntil);
 
 final reminderBoardProvider = Provider<ReminderBoard>((ref) {
   final reminders =

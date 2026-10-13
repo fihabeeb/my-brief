@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_controller.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../core/providers/theme_mode_provider.dart';
+import '../../core/settings/app_settings.dart';
 import '../../core/supabase/supabase_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -12,6 +14,10 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final mode = ref.watch(themeModeProvider);
+    final appSettings = ref.watch(appSettingsProvider);
+    final notificationsSupported =
+        ref.watch(notificationServiceProvider).isSupported;
+    final notifier = ref.read(appSettingsProvider.notifier);
     final configured = SupabaseService.isConfigured;
     final email = configured ? SupabaseService.auth.currentUser?.email : null;
 
@@ -72,6 +78,65 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  subtitle: Text(notificationsSupported
+                      ? 'Reminders and due tasks'
+                      : 'Not available on this device yet'),
+                  value: appSettings.notificationsEnabled,
+                  onChanged: notificationsSupported
+                      ? notifier.setNotificationsEnabled
+                      : null,
+                ),
+                if (notificationsSupported && appSettings.notificationsEnabled) ...[
+                  ListTile(
+                    leading: const Icon(Icons.access_time),
+                    title: const Text('Task alert time'),
+                    subtitle:
+                        const Text('Due tasks are announced at this hour'),
+                    trailing: DropdownButton<int>(
+                      value: appSettings.taskNotifyHour,
+                      items: [
+                        for (var h = 0; h < 24; h++)
+                          DropdownMenuItem(
+                            value: h,
+                            child:
+                                Text('${h.toString().padLeft(2, '0')}:00'),
+                          ),
+                      ],
+                      onChanged: (h) {
+                        if (h != null) notifier.setTaskNotifyHour(h);
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.snooze),
+                    title: const Text('Snooze length'),
+                    trailing: DropdownButton<int>(
+                      // Guarded so a hand-edited prefs value can't make the
+                      // dropdown assert on an item that isn't in the list.
+                      value: const [5, 10, 15, 30, 60]
+                              .contains(appSettings.snoozeMinutes)
+                          ? appSettings.snoozeMinutes
+                          : 10,
+                      items: [
+                        for (final m in const [5, 10, 15, 30, 60])
+                          DropdownMenuItem(value: m, child: Text('$m min')),
+                      ],
+                      onChanged: (m) {
+                        if (m != null) notifier.setSnoozeMinutes(m);
+                      },
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (configured)

@@ -15,6 +15,12 @@ class ReminderRepository {
         ..orderBy([(r) => OrderingTerm.asc(r.remindAt)]))
       .watch();
 
+  /// Single reminder by id, including completed and soft-deleted rows so a
+  /// toast action can still resolve an item the user just acted on.
+  Future<Reminder?> byId(String id) =>
+      (_db.select(_db.reminders)..where((r) => r.id.equals(id)))
+          .getSingleOrNull();
+
   Future<void> upsert({
     required String userId,
     String? id,

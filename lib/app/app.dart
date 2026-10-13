@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers/theme_mode_provider.dart';
 import '../core/sync/sync_bootstrap.dart';
 import '../core/theme/app_theme.dart';
+import 'notification_bootstrap.dart';
 import 'router.dart';
 
 class MyApp extends ConsumerWidget {
@@ -13,6 +14,8 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Instantiates sync (starts push/pull + realtime once signed in).
     ref.watch(syncBootstrapProvider);
+    // Instantiates the in-process notification scheduler.
+    ref.watch(notificationBootstrapProvider);
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'My Brief',
