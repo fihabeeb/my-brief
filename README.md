@@ -59,11 +59,29 @@ Without credentials, simply `flutter run -d android` / `-d windows`.
 
 ## Build release artifacts
 
+Supabase credentials are **compile-time** dart-defines, so a build made without
+them boots to the Setup screen (no sign-in, no sync). Use the wrapper — it
+passes `--dart-define-from-file` for you and fails loudly if `config/dev.json`
+is missing:
+
 ```powershell
-flutter build apk           # Android APK
-flutter build appbundle     # Android AAB (Play-ready, later)
-flutter build windows       # Windows (unpacked exe in build\windows\x64\runner\Release)
+.\scripts\build.ps1 windows    # -> build\windows\x64\runner\Release\mybrief.exe
+.\scripts\build.ps1 apk        # -> build\app\outputs\flutter-apk\app-release.apk
+.\scripts\build.ps1 appbundle  # -> build\app\outputs\bundle\release\app-release.aab
 ```
+
+Or pass the flag yourself:
+
+```powershell
+flutter build apk       --dart-define-from-file=config/dev.json
+flutter build appbundle --dart-define-from-file=config/dev.json
+flutter build windows   --dart-define-from-file=config/dev.json
+```
+
+CI builds the same way, reading `config/ci.json` from the `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` **repository secrets**. Without those secrets the artifacts
+are unconfigured (Setup screen) — set them under *Settings → Secrets and
+variables → Actions* if you want to install CI output directly.
 
 ## Project layout
 
@@ -77,6 +95,8 @@ lib/
     auth/  dashboard/  settings/
 supabase/
   migrations/          # SQL schema + RLS
+scripts/
+  build.ps1            # release build with credentials injected
 config/
   dev.example.json     # copy to dev.json (git-ignored) and fill in
 ```
@@ -87,6 +107,10 @@ config/
 OAuth client secrets, or Firebase service-account JSON. Backend-only secrets
 (Gmail/Microsoft OAuth refresh tokens, FCM service account) live server-side in
 Supabase, never in the app.
+
+The **anon key is not a secret** — it ships inside every client build and is
+protected by Row Level Security, not by secrecy. It is safe (and expected) to
+put it in the `SUPABASE_ANON_KEY` GitHub Actions secret.
 
 ## Tests
 

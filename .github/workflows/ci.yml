@@ -28,7 +28,24 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build apk
+      # SUPABASE_URL / SUPABASE_ANON_KEY are compile-time dart-defines. When the
+      # repository secrets are absent the file still contains empty strings, so
+      # the build succeeds and ships unconfigured (Setup screen) - just loudly.
+      - name: Write Supabase dart-define file
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p config
+          printf '{"SUPABASE_URL":"%s","SUPABASE_ANON_KEY":"%s"}' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > config/ci.json
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set - this APK will open on the Setup screen."
+          else
+            echo "Configured artifact for $SUPABASE_URL"
+          fi
+      - run: flutter build apk --dart-define-from-file=config/ci.json
       - uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
@@ -44,7 +61,21 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build windows
+      - name: Write Supabase dart-define file
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p config
+          printf '{"SUPABASE_URL":"%s","SUPABASE_ANON_KEY":"%s"}' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > config/ci.json
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set - this exe will open on the Setup screen."
+          else
+            echo "Configured artifact for $SUPABASE_URL"
+          fi
+      - run: flutter build windows --dart-define-from-file=config/ci.json
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
