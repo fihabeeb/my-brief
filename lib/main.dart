@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'app/app.dart';
 import 'core/settings/app_settings.dart';
 import 'core/supabase/supabase_service.dart';
 import 'core/time/app_timezone.dart';
 import 'core/utils/logger.dart';
+import 'core/window/tray_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initLogging();
+
+  // Must happen before the first frame: minimise-to-tray intercepts the
+  // window's close button, and window_manager only supports that once the
+  // plugin knows about the window. Guarded because there is no window to
+  // manage on platforms without a desktop shell.
+  if (TrayService.isSupported) {
+    try {
+      await windowManager.ensureInitialized();
+    } catch (e, st) {
+      log.warning('Window manager unavailable; tray features disabled', e, st);
+    }
+  }
 
   // Loaded before the first frame so app settings read synchronously.
   final prefs = await SharedPreferences.getInstance();

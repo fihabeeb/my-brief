@@ -6,6 +6,8 @@ import '../../core/notifications/notification_service.dart';
 import '../../core/providers/theme_mode_provider.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/supabase/supabase_service.dart';
+import '../../core/window/start_on_login.dart';
+import '../../core/window/tray_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -139,6 +141,40 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (TrayService.isSupported)
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.picture_in_picture_alt),
+                    title: const Text('Minimise to tray'),
+                    subtitle: const Text(
+                      'Closing the window keeps My Brief running, '
+                      'so reminders still fire',
+                    ),
+                    value: appSettings.minimizeToTray,
+                    onChanged: notifier.setMinimizeToTray,
+                  ),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.power_settings_new),
+                    title: const Text('Start on login'),
+                    subtitle: const Text(
+                      'Launches at sign-in so due tasks can be announced',
+                    ),
+                    value: appSettings.startOnLogin,
+                    onChanged: (value) {
+                      notifier.setStartOnLogin(value);
+                      // Written through to the OS immediately; the stored
+                      // value is re-asserted on every launch, so an entry
+                      // changed outside the app is corrected rather than
+                      // silently diverging.
+                      applyStartOnLogin(enabled: value);
+                    },
+                  ),
+                ],
+              ),
+            ),
           if (configured)
             Card(
               child: ListTile(

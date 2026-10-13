@@ -6,6 +6,7 @@ import '../core/sync/sync_bootstrap.dart';
 import '../core/theme/app_theme.dart';
 import 'notification_bootstrap.dart';
 import 'router.dart';
+import 'tray_bootstrap.dart';
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
@@ -16,6 +17,9 @@ class MyApp extends ConsumerWidget {
     ref.watch(syncBootstrapProvider);
     // Instantiates the in-process notification scheduler.
     ref.watch(notificationBootstrapProvider);
+    // Instantiates the tray icon and minimise-to-tray handling. Created once;
+    // see tray_bootstrap.dart for why it must not rebuild.
+    ref.watch(trayBootstrapProvider);
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'My Brief',

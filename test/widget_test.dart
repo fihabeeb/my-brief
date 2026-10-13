@@ -5,10 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mybrief/app/app.dart';
+import 'package:mybrief/app/tray_bootstrap.dart';
 import 'package:mybrief/core/database/app_database.dart';
 import 'package:mybrief/core/database/database_provider.dart';
 import 'package:mybrief/core/notifications/notification_service.dart';
 import 'package:mybrief/core/settings/app_settings.dart';
+import 'package:mybrief/core/window/tray_service.dart';
 
 void main() {
   testWidgets('renders setup screen when Supabase is unconfigured',
@@ -27,6 +29,12 @@ void main() {
           // so the widget under test must not touch a real toast plugin.
           notificationServiceProvider
               .overrideWithValue(const UnsupportedNotificationService()),
+          // The test host is Windows, so the real bootstrap would create a
+          // native tray icon. This instance is never initialised, so no
+          // native call is made.
+          trayBootstrapProvider.overrideWithValue(
+            TrayService(minimizeToTray: () => true),
+          ),
         ],
         child: const MyApp(),
       ),
