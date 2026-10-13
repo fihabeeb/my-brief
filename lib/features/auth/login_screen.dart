@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     enabled: !_busy,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: '6-digit code',
+                      labelText: 'Sign-in code',
                       prefixIcon: Icon(Icons.pin_outlined),
                     ),
                     onSubmitted: (_) => _verify(),

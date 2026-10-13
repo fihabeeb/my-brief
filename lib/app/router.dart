@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../core/auth/auth_controller.dart';
 import '../core/supabase/supabase_service.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/setup_screen.dart';
@@ -12,18 +14,26 @@ import '../features/settings/settings_screen.dart';
 import '../features/tasks/tasks_screen.dart';
 import 'app_shell.dart';
 
-/// Re-evaluates GoRouter redirects whenever auth state changes.
+/// Re-evaluates GoRouter redirects whenever Supabase auth state changes.
+///
+/// We subscribe to Supabase's [GoTrueClient.onAuthStateChange] directly rather
+/// than a Riverpod provider. After a successful OTP sign-in the session flips
+/// from `null` to a value; this stream always emits on that transition, so
+/// `notifyListeners()` fires and GoRouter re-runs its redirect (leaving
+/// `/login`). A void-valued provider would set an equal state and never notify.
 class _AuthRefresh extends ChangeNotifier {
-  _AuthRefresh(this.ref) {
-    _sub = ref.listen(authControllerProvider, (_, _) => notifyListeners());
+  _AuthRefresh() {
+    if (SupabaseService.isConfigured) {
+      _sub = SupabaseService.auth.onAuthStateChange
+          .listen((_) => notifyListeners());
+    }
   }
 
-  final Ref ref;
-  late final ProviderSubscription<AsyncValue<void>> _sub;
+  StreamSubscription<AuthState>? _sub;
 
   @override
   void dispose() {
-    _sub.close();
+    _sub?.cancel();
     super.dispose();
   }
 }
@@ -46,7 +56,7 @@ String? _redirect(GoRouterState state) {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final refresh = _AuthRefresh(ref);
+  final refresh = _AuthRefresh();
   ref.onDispose(refresh.dispose);
 
   return GoRouter(

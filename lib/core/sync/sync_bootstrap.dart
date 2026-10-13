@@ -1,34 +1,47 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../auth/auth_controller.dart';
 import '../supabase/supabase_service.dart';
 import 'sync_service.dart';
 
-/// Starts sync when a user is signed in. Watches [authControllerProvider] so it
-/// (re)subscribes after sign-in / re-auth, and re-tears-down on sign-out.
+/// Starts sync when a user signs in, and stops when they sign out.
 ///
-/// - Immediate push of any offline edits, then a pull.
-/// - Realtime subscription so changes land on this device within seconds.
-/// - A periodic pull as a safety net (covers missed realtime events / cold
-///   starts) — cheap for a single user.
+/// Subscribes to Supabase's [GoTrueClient.onAuthStateChange] directly (the same
+/// reliable pattern the router uses) so it reacts to sign-in regardless of
+/// provider value-equality. On sign-in: push offline edits, pull, then start a
+/// realtime subscription plus a periodic pull as a safety net.
 final syncBootstrapProvider = Provider<void>((ref) {
-  ref.watch(authControllerProvider);
-
   if (!SupabaseService.isConfigured) return;
-  final uid = SupabaseService.auth.currentUser?.id;
-  if (uid == null) return;
 
   final svc = ref.read(syncServiceProvider);
-  svc.subscribe();
-  svc.syncNow();
+  StreamSubscription<AuthState>? sub;
+  Timer? timer;
 
-  final timer = Timer.periodic(
-      const Duration(minutes: 2), (_) => svc.syncNow());
+  void start() {
+    svc.subscribe();
+    svc.syncNow();
+    timer ??= Timer.periodic(const Duration(minutes: 2), (_) => svc.syncNow());
+  }
+
+  void stop() {
+    timer?.cancel();
+    timer = null;
+    svc.unsubscribe();
+  }
+
+  sub = SupabaseService.auth.onAuthStateChange.listen((event) {
+    if (event.session != null) {
+      start();
+    } else {
+      stop();
+    }
+  });
 
   ref.onDispose(() {
-    timer.cancel();
+    sub?.cancel();
+    timer?.cancel();
     svc.unsubscribe();
   });
 });
