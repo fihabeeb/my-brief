@@ -138,12 +138,31 @@ class NotificationScheduler {
         delivered.addAll(fired);
       }
 
+      // Forget keys for items the user deleted, and take back any notification
+      // the OS is still holding for one. Runs before scheduling below, so this
+      // pass can never cancel something it has just scheduled.
+      final beforePrune = Set<String>.of(delivered);
+      final kept = _prune(delivered);
+      final removed = beforePrune.difference(kept);
+      delivered
+        ..clear()
+        ..addAll(kept);
+
+      if (service.supportsScheduling) {
+        if (removed.isNotEmpty) {
+          final unmarked = await _cancelScheduled(removed, upcoming);
+          delivered.removeAll(unmarked);
+        }
+        if (upcoming.isNotEmpty) {
+          delivered.addAll(await _scheduleUpcoming(upcoming));
+        }
+      }
+
       // Persist when something new fired *or* when pruning dropped a key for
       // an item the user deleted — otherwise a deleted reminder's key would
       // linger until the next unrelated notification.
-      final pruned = _prune(delivered);
-      if (delivered.length != originalCount || pruned.length != delivered.length) {
-        await _persistDelivered(pruned);
+      if (delivered.length != originalCount || removed.isNotEmpty) {
+        await _persistDelivered(delivered);
       }
 
       _arm(upcoming);
@@ -177,39 +196,115 @@ class NotificationScheduler {
 
   Future<Set<String>> _fire(List<PlannedNotification> due) async {
     final fired = <String>{};
-    final taskDue = [for (final p in due) if (p.kind == PlannedKind.task) p];
-    final reminderDue = [
-      for (final p in due) if (p.kind == PlannedKind.reminder) p
-    ];
-
-    // All tasks in this pass become one toast, so five due tasks don't bury
-    // the screen. Reminders stay separate because each carries its own
-    // snooze/done buttons.
-    if (taskDue.isNotEmpty) {
+    for (final group in _groupsFor(due)) {
       try {
-        await service.show(_groupedTaskRequest(taskDue));
-        fired.addAll(taskDue.map((p) => p.occurrenceKey));
+        await service.show(_requestFor(group));
+        fired.addAll(group.map((p) => p.occurrenceKey));
       } catch (e) {
-        log.warning('Task notification failed: $e');
-      }
-    }
-
-    for (final p in reminderDue) {
-      try {
-        await service.show(NotificationRequest(
-          id: _idFor(p.kind, p.itemId),
-          title: p.title,
-          body: p.body,
-          payload: p.onOpen.encode(),
-          actions: p.actions,
-        ));
-        fired.add(p.occurrenceKey);
-      } catch (e) {
-        log.warning('Reminder notification failed: $e');
+        log.warning('Notification failed: $e');
       }
     }
     return fired;
   }
+
+  /// Hands future occurrences to the OS so they fire with the app closed.
+  ///
+  /// An occurrence is recorded as delivered **only** once the platform confirms
+  /// it took it. If scheduling is refused the key stays unmarked, so the
+  /// in-process timer is still able to deliver it while the app runs — a
+  /// permission problem must degrade to a Windows-style reminder, not to
+  /// silence.
+  Future<Set<String>> _scheduleUpcoming(
+    List<PlannedNotification> upcoming,
+  ) async {
+    final scheduled = <String>{};
+    for (final group in _groupsFor(upcoming)) {
+      try {
+        final accepted =
+            await service.schedule(_requestFor(group), group.first.fireAt);
+        if (accepted) scheduled.addAll(group.map((p) => p.occurrenceKey));
+      } catch (e) {
+        log.warning('Notification scheduling failed: $e');
+      }
+    }
+    return scheduled;
+  }
+
+  /// Takes back OS-side notifications whose item the user has deleted.
+  ///
+  /// Returns the occurrence keys to unmark so whatever remains can be
+  /// re-scheduled in this same pass.
+  Future<Set<String>> _cancelScheduled(
+    Set<String> removed,
+    List<PlannedNotification> upcoming,
+  ) async {
+    var taskRemoved = false;
+    for (final key in removed) {
+      final split = _splitKey(key);
+      if (split == null) continue;
+      final (kind, id) = split;
+      if (kind == 'task') {
+        taskRemoved = true;
+      } else if (kind == 'reminder') {
+        // Reminders map one-to-one onto a notification id, so this is exact.
+        await service.cancel(_idFor(PlannedKind.reminder, id));
+      }
+    }
+    if (!taskRemoved) return const {};
+
+    // Every task in a slot shares one notification id, so deleting any one of
+    // them has to take the whole digest back. Only the still-future
+    // occurrences are unmarked: anything already announced stays recorded, so
+    // it cannot announce a second time.
+    await service.cancel(_idFor(PlannedKind.task, '*group*'));
+    return {
+      for (final p in upcoming)
+        if (p.kind == PlannedKind.task) p.occurrenceKey,
+    };
+  }
+
+  /// Splits plans into the notifications they should become.
+  ///
+  /// Reminders never group — each carries its own snooze/done buttons. Tasks
+  /// collapse into one notification per firing slot so five due tasks don't
+  /// bury the screen. Because every task due in a pass shares a single
+  /// [PlannedNotification.fireAt], grouping *by slot* is what keeps that digest
+  /// intact whether the notification is shown now or handed to the OS to fire
+  /// later.
+  ///
+  /// `plans` must already be sorted ascending by fireAt.
+  List<List<PlannedNotification>> _groupsFor(List<PlannedNotification> plans) {
+    final groups = <List<PlannedNotification>>[];
+    for (final p in plans) {
+      if (p.kind == PlannedKind.reminder) {
+        groups.add([p]);
+        continue;
+      }
+      final last = groups.isNotEmpty ? groups.last : null;
+      if (last != null &&
+          last.first.kind == PlannedKind.task &&
+          last.first.fireAt.isAtSameMomentAs(p.fireAt)) {
+        last.add(p);
+      } else {
+        groups.add([p]);
+      }
+    }
+    return groups;
+  }
+
+  NotificationRequest _requestFor(List<PlannedNotification> group) =>
+      group.first.kind == PlannedKind.task
+          ? _groupedTaskRequest(group)
+          : _singleRequest(group.first);
+
+  NotificationRequest _singleRequest(PlannedNotification p) =>
+      NotificationRequest(
+        id: _idFor(p.kind, p.itemId),
+        title: p.title,
+        body: p.body,
+        payload: p.onOpen.encode(),
+        actions: p.actions,
+      );
 
   NotificationRequest _groupedTaskRequest(List<PlannedNotification> taskDue) {
     final titles = [for (final p in taskDue) p.title];

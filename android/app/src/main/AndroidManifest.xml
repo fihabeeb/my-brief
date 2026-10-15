@@ -1,4 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Posting alerts. The plugin also declares POST_NOTIFICATIONS, but
+         stating it here keeps the requirement visible in this repo rather than
+         one dependency change away. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- Lets the plugin reschedule after a reboot: AlarmManager alarms do not
+         survive one, so without this every reminder is lost at restart. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- Reminders are time-sensitive, so alarms are scheduled exactly rather
+         than "roughly". USE_EXACT_ALARM is granted without prompting, which
+         suits a personal app that is sideloaded; Google Play reserves it for
+         alarm-clock and calendar apps, so if this is ever published it must
+         switch to SCHEDULE_EXACT_ALARM (which needs a runtime request and is
+         then denied by default on Android 14+). The Dart side detects denial
+         via canScheduleExactNotifications() and falls back to inexact
+         scheduling either way. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
     <application
         android:label="My Brief"
         android:name="${applicationName}"
@@ -30,6 +50,28 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- flutter_local_notifications' own receivers. Required so a scheduled
+             alert is delivered by the system (ScheduledNotificationReceiver),
+             rebuilt after a reboot (ScheduledNotificationBootReceiver), and so
+             action buttons such as Snooze/Done reach the app
+             (ActionBroadcastReceiver). Declared here rather than by the plugin
+             so it is visible which behaviours this app depends on. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

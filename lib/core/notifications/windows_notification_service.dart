@@ -9,7 +9,7 @@ import 'notification_service.dart';
 /// package identity. Action buttons are best-effort: the platform returns the
 /// pressed button's `arguments` as both `payload` and `actionId`, so callers
 /// must encode a complete intent in every string.
-class WindowsNotificationService implements NotificationService {
+class WindowsNotificationService extends NotificationService {
   /// Identifies this app's toast activation callback. Stable per app; changing
   /// it breaks toast clicks until Windows re-registers the shortcut.
   static const _guid = '544513d2-a6f2-42e4-b3b4-59922cbc92df';

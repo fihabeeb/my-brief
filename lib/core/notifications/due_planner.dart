@@ -176,7 +176,16 @@ class DuePlanner {
   DateTime _taskFireAt(DateTime dueDate, DateTime now) {
     final nowLocal = tz.TZDateTime.from(now, location);
     final today = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
-    final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
+
+    // `dueDate` is written as UTC midnight, but the database hands it back in
+    // the device's own zone. Reading the date straight off that value would
+    // use the local calendar day, so a machine west of UTC — where UTC
+    // midnight has already rolled back into the previous day — would see a
+    // task as due a day early. Both sides are built as naive dates below so
+    // the comparison is a pure calendar one.
+    final dueUtc = dueDate.toUtc();
+    final due = DateTime(dueUtc.year, dueUtc.month, dueUtc.day);
+
     final target = due.isBefore(today) ? today : due;
     return tz.TZDateTime(
       location,

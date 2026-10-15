@@ -1,9 +1,9 @@
 import 'notification_service.dart';
 
-/// Fallback used on platforms without an implementation (and on Android until
-/// Phase 2b). Reports itself as unavailable so the UI can say so honestly
-/// rather than pretending alerts are on.
-class UnsupportedNotificationService implements NotificationService {
+/// Fallback used on platforms without an implementation. Reports itself as
+/// unavailable so the UI can say so honestly rather than pretending alerts
+/// are on.
+class UnsupportedNotificationService extends NotificationService {
   const UnsupportedNotificationService();
 
   @override

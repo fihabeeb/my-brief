@@ -13,12 +13,26 @@ import 'package:mybrief/core/notifications/notification_scheduler.dart';
 import 'package:mybrief/core/notifications/notification_service.dart';
 
 /// Stands in for a platform: records what was shown, never throws.
-class _RecordingService implements NotificationService {
+///
+/// With [scheduling] on it behaves like Android, where the OS owns future
+/// occurrences; off it behaves like Windows, where everything is shown at once.
+class _RecordingService extends NotificationService {
+  _RecordingService({this.scheduling = false});
+
+  final bool scheduling;
   final shown = <NotificationRequest>[];
+  final scheduled = <(NotificationRequest, DateTime)>[];
+  final cancelled = <int>[];
+
+  /// Lets a test simulate the OS refusing to schedule (permission revoked).
+  bool acceptSchedules = true;
   void Function(String payload)? onResponse;
 
   @override
   bool get isSupported => true;
+
+  @override
+  bool get supportsScheduling => scheduling;
 
   @override
   Future<bool> init({required void Function(String payload) onResponse}) async {
@@ -28,6 +42,16 @@ class _RecordingService implements NotificationService {
 
   @override
   Future<void> show(NotificationRequest request) async => shown.add(request);
+
+  @override
+  Future<bool> schedule(NotificationRequest request, DateTime when) async {
+    if (!scheduling || !acceptSchedules) return false;
+    scheduled.add((request, when));
+    return true;
+  }
+
+  @override
+  Future<void> cancel(int id) async => cancelled.add(id);
 
   @override
   Future<void> cancelAll() async {}
@@ -60,9 +84,9 @@ void main() {
 
   tearDown(() => db.close());
 
-  NotificationScheduler buildScheduler() {
+  NotificationScheduler buildScheduler({NotificationService? using}) {
     final scheduler = NotificationScheduler(
-      service: service,
+      service: using ?? service,
       reminders: reminders,
       tasks: tasks,
       prefs: prefs,
@@ -274,5 +298,104 @@ void main() {
     expect(service.shown, hasLength(1),
         reason: 'a bad prefs value should cost one duplicate, not all alerts');
     expect(prefs.getString('delivered_notifications'), contains('reminder:'));
+  });
+
+  // Android hands future occurrences to AlarmManager so they fire with the app
+  // closed. These cover the one behaviour that differs from Windows: who owns
+  // the notification, and what is recorded when they do.
+  group('on a platform that schedules with the OS', () {
+    test('a future reminder is scheduled, not shown, and is recorded', () async {
+      final os = _RecordingService(scheduling: true);
+      final dueAt = now.add(const Duration(hours: 2));
+      await reminders.upsert(userId: 'u1', title: 'Call Sam', remindAt: dueAt);
+
+      final scheduler = buildScheduler(using: os);
+      await scheduler.start();
+
+      expect(os.shown, isEmpty,
+          reason: 'the OS owns future occurrences; showing here too would '
+              'double up when it fires');
+      expect(os.scheduled, hasLength(1));
+      expect(os.scheduled.single.$1.title, 'Call Sam');
+      expect(os.scheduled.single.$2.toUtc(), dueAt,
+          reason: 'the database returns UTC instants in the device\'s own '
+              'zone, so only the instant is part of the contract');
+      expect(prefs.getString('delivered_notifications'), contains('reminder:'));
+    });
+
+    test('an already-due reminder is still shown immediately', () async {
+      final os = _RecordingService(scheduling: true);
+      await reminders.upsert(
+        userId: 'u1',
+        title: 'Now',
+        remindAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      final scheduler = buildScheduler(using: os);
+      await scheduler.start();
+
+      expect(os.shown, hasLength(1));
+      expect(os.scheduled, isEmpty);
+    });
+
+    test('future tasks are scheduled as one digest per slot', () async {
+      final os = _RecordingService(scheduling: true);
+      await tasks.upsert(
+          userId: 'u1', title: 'Pay bill', dueDate: DateTime.utc(2026, 6, 16));
+      await tasks.upsert(
+          userId: 'u1',
+          title: 'Send invoice',
+          dueDate: DateTime.utc(2026, 6, 16));
+
+      final scheduler = buildScheduler(using: os);
+      await scheduler.start();
+
+      expect(os.scheduled, hasLength(1),
+          reason: 'a burst of notifications would bury the screen just as '
+              'much on Android as on Windows');
+      expect(os.scheduled.single.$1.title, '2 tasks due');
+    });
+
+    test('a refused schedule leaves the occurrence for the in-process fallback',
+        () async {
+      final os = _RecordingService(scheduling: true)..acceptSchedules = false;
+      final dueAt = now.add(const Duration(hours: 1));
+      await reminders.upsert(userId: 'u1', title: 'Later', remindAt: dueAt);
+
+      final scheduler = buildScheduler(using: os);
+      await scheduler.start();
+
+      expect(os.scheduled, isEmpty);
+      expect(prefs.getString('delivered_notifications') ?? '',
+          isNot(contains('reminder:')),
+          reason: 'recording it here would silence the fallback permanently');
+
+      // The app stays alive past the time, so the in-process path still fires.
+      now = dueAt.add(const Duration(minutes: 1));
+      await scheduler.evaluate();
+      expect(os.shown, hasLength(1));
+    });
+
+    test('deleting a scheduled reminder takes its OS notification back',
+        () async {
+      final os = _RecordingService(scheduling: true);
+      await reminders.upsert(
+        userId: 'u1',
+        title: 'Call Sam',
+        remindAt: now.add(const Duration(hours: 1)),
+      );
+
+      final scheduler = buildScheduler(using: os);
+      await scheduler.start();
+      expect(os.scheduled, hasLength(1));
+
+      final id = (await reminders.watchActive().first).single.id;
+      await reminders.softDelete(id);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await scheduler.evaluate();
+
+      expect(os.cancelled, [Object.hash('reminder', id) & 0x7fffffff],
+          reason: 'a deleted reminder must not still fire later');
+    });
   });
 }

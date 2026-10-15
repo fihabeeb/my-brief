@@ -292,4 +292,27 @@ void main() {
       );
     }
   });
+
+  test('a due date is taken from its UTC calendar day', () {
+    // The column holds UTC midnight, and the database returns that same
+    // instant in the device's own zone. The calendar day therefore has to come
+    // from the UTC side of the value: on a machine west of UTC the local day
+    // of that instant is the 15th, and reading it directly would announce a
+    // task due on the 16th a day early.
+    final stored = DateTime.fromMillisecondsSinceEpoch(
+      DateTime.utc(2026, 6, 16).millisecondsSinceEpoch,
+    );
+
+    final out = plan(
+      tasks: [task(id: 't1', dueDate: stored)],
+      now: DateTime.utc(2026, 6, 15, 8),
+    );
+
+    expect(out, hasLength(1));
+    expect(
+      out.single.fireAt.toUtc(),
+      DateTime.utc(2026, 6, 16, 8),
+      reason: '09:00 BST on the 16th',
+    );
+  });
 }
