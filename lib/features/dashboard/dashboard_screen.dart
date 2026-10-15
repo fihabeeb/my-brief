@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/database/app_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../../core/utils/format.dart';
+import '../inbox/inbox_providers.dart';
 import '../reminders/reminder_providers.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
@@ -411,23 +412,105 @@ class _DigestCard extends StatelessWidget {
   }
 }
 
-class _InboxCard extends StatelessWidget {
+/// Newest mail across every connected account.
+///
+/// A summary rather than a list: three lines is enough to tell whether
+/// anything needs attention, which is what the dashboard is for. Tapping goes
+/// to the full inbox.
+class _InboxCard extends ConsumerWidget {
   const _InboxCard();
 
+  static const _shown = 3;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final emails = ref.watch(recentEmailsProvider).value ?? const <Email>[];
+    final hasAccounts =
+        (ref.watch(emailAccountsProvider).value ?? const <EmailAccount>[])
+            .isNotEmpty;
+    final unread = ref.watch(unreadEmailCountProvider).value ?? 0;
+    final highlights = emails.take(_shown).toList();
+
     return Card(
-      child: ListTile(
-        leading: Icon(Icons.inbox, color: theme.colorScheme.primary),
-        title: const Text('Inbox highlights'),
-        subtitle: const Text('Email integration arrives in Phase 4'),
-        trailing: Text(
-          'Coming soon',
-          style: theme.textTheme.titleSmall
-              ?.copyWith(color: theme.colorScheme.primary),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.go('/inbox'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.inbox, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Inbox', style: theme.textTheme.titleLarge),
+                  ),
+                  if (unread > 0)
+                    Text(
+                      '$unread unread',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(color: theme.colorScheme.primary),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (highlights.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    hasAccounts
+                        ? 'No mail yet.'
+                        : 'Connect a Gmail or Outlook account in Settings.',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                )
+              else
+                for (final email in highlights)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        // Fixed gutter, so read rows stay aligned with unread
+                        // ones rather than jumping sideways.
+                        if (!email.isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 10),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 18),
+                        Expanded(
+                          child: Text(
+                            [
+                              email.fromName ?? email.fromEmail ?? 'Unknown',
+                              if (email.subject.isNotEmpty) email.subject,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          fmtWhen(email.receivedAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
         ),
-        onTap: null,
       ),
     );
   }

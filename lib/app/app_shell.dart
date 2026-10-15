@@ -11,6 +11,7 @@ class AppShell extends StatelessWidget {
     (icon: Icons.home_outlined, selected: Icons.home, label: 'Dashboard'),
     (icon: Icons.checklist_outlined, selected: Icons.checklist, label: 'Tasks'),
     (icon: Icons.alarm_outlined, selected: Icons.alarm, label: 'Reminders'),
+    (icon: Icons.inbox_outlined, selected: Icons.inbox, label: 'Inbox'),
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
   ];
 

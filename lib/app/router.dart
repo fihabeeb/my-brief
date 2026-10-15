@@ -9,6 +9,7 @@ import '../core/supabase/supabase_service.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/setup_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/inbox/inbox_screen.dart';
 import '../features/reminders/reminders_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/tasks/tasks_screen.dart';
@@ -82,6 +83,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/inbox', builder: (_, _) => const InboxScreen()),
             ],
           ),
           StatefulShellBranch(

@@ -57,7 +57,12 @@ void main() {
     expect(find.text('Call Sam'), findsOneWidget);
     // First open with nothing recorded yet, so the digest is offered.
     expect(find.text('Morning digest'), findsOneWidget);
-    expect(find.text('Inbox highlights'), findsOneWidget);
+    expect(find.text('Inbox'), findsOneWidget);
+    expect(
+      find.text('Connect a Gmail or Outlook account in Settings.'),
+      findsOneWidget,
+      reason: 'with no mail connected the card should say how to fix that',
+    );
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
