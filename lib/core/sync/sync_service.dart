@@ -5,9 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
 import '../supabase/supabase_service.dart';
+import '../utils/logger.dart';
+import 'email_sync_service.dart';
 
-final syncServiceProvider = Provider<SyncService>(
-    (ref) => SyncService(ref.watch(appDatabaseProvider)));
+final syncServiceProvider = Provider<SyncService>((ref) => SyncService(
+      ref.watch(appDatabaseProvider),
+      ref.watch(emailSyncServiceProvider),
+    ));
 
 /// Two-way sync between the local Drift cache and Supabase.
 ///
@@ -17,8 +21,9 @@ final syncServiceProvider = Provider<SyncService>(
 ///   last-write-wins rule on `updated_at`, and incoming rows are never
 ///   re-flagged for sync (no echo loop).
 class SyncService {
-  SyncService(this._db);
+  SyncService(this._db, this._email);
   final AppDatabase _db;
+  final EmailSyncService _email;
 
   RealtimeChannel? _channel;
 
@@ -32,6 +37,15 @@ class SyncService {
     await _pushReminders(uid);
     await _pullTasks(uid);
     await _pullReminders(uid);
+
+    // Mail is a separate one-way mirror. Awaited last and on its own, so an
+    // unreachable inbox cannot make an otherwise successful sync look failed —
+    // the tasks above have already landed by this point.
+    try {
+      await _email.syncNow();
+    } catch (e) {
+      log.warning('Email sync failed: $e');
+    }
   }
 
   void subscribe() {

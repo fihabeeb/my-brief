@@ -8,6 +8,7 @@ import '../../core/settings/app_settings.dart';
 import '../../core/supabase/supabase_service.dart';
 import '../../core/window/start_on_login.dart';
 import '../../core/window/tray_service.dart';
+import 'email_accounts_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -175,6 +176,7 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          if (configured) const EmailAccountsCard(),
           if (configured)
             Card(
               child: ListTile(

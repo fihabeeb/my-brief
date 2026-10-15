@@ -11,6 +11,13 @@ class SupabaseService {
 
   static bool get isConfigured => _url.isNotEmpty && _anonKey.isNotEmpty;
 
+  /// Base URL for Edge Functions.
+  ///
+  /// Derived from the project URL rather than configured separately, so
+  /// adding a function never needs another dart-define.
+  static Uri? get functionsBase =>
+      isConfigured ? Uri.parse('$_url/functions/v1') : null;
+
   static SupabaseClient get client => Supabase.instance.client;
 
   static GoTrueClient get auth => client.auth;
