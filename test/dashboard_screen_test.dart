@@ -59,7 +59,7 @@ void main() {
     expect(find.text('Morning digest'), findsOneWidget);
     expect(find.text('Inbox'), findsOneWidget);
     expect(
-      find.text('Connect a Gmail or Outlook account in Settings.'),
+      find.text('Connect a Gmail account in Settings.'),
       findsOneWidget,
       reason: 'with no mail connected the card should say how to fix that',
     );
@@ -68,8 +68,7 @@ void main() {
     await tester.pump(Duration.zero);
   });
 
-  testWidgets('hides the digest once it has been seen today',
-      (tester) async {
+  testWidgets('hides the digest once it has been seen today', (tester) async {
     await _pumpDashboard(
       tester,
       initialPrefs: {'digest_shown_for': DateTime.now().toIso8601String()},
@@ -82,8 +81,9 @@ void main() {
     await tester.pump(Duration.zero);
   });
 
-  testWidgets('completing a task from the dashboard marks it off',
-      (tester) async {
+  testWidgets('completing a task from the dashboard marks it off', (
+    tester,
+  ) async {
     final db = await _pumpDashboard(tester);
     final repo = TaskRepository(db);
     await repo.upsert(

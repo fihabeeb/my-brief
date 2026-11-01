@@ -1829,8 +1829,7 @@ class EmailAccount extends DataClass implements Insertable<EmailAccount> {
   final String status;
   final String? lastError;
 
-  /// Opaque provider-specific sync position — Gmail's historyId, Graph's
-  /// delta token. Only the Edge Function reads it.
+  /// Opaque Gmail sync position. Only the Edge Function reads it.
   final String? syncCursor;
   final DateTime? lastSyncedAt;
   final String secretRef;

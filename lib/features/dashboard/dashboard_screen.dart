@@ -33,8 +33,8 @@ class DashboardScreen extends ConsumerWidget {
     final greeting = now.hour < 12
         ? 'Good morning'
         : now.hour < 18
-            ? 'Good afternoon'
-            : 'Good evening';
+        ? 'Good afternoon'
+        : 'Good evening';
     final name = ref.watch(greetingNameProvider);
 
     return Scaffold(
@@ -71,7 +71,8 @@ class DashboardScreen extends ConsumerWidget {
               ? _DigestCard(
                   progress: ref.watch(todayProgressProvider),
                   overdue: taskBoard.overdue.length,
-                  reminders: reminderBoard.overdue.length +
+                  reminders:
+                      reminderBoard.overdue.length +
                       reminderBoard.next24h.length,
                   onDismiss: () => ref.read(digestProvider.notifier).dismiss(),
                 )
@@ -108,13 +109,7 @@ class DashboardScreen extends ConsumerWidget {
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        header,
-                        today,
-                        reminders,
-                        ?digest,
-                        inbox,
-                      ],
+                      children: [header, today, reminders, ?digest, inbox],
                     ),
             ),
           );
@@ -138,14 +133,16 @@ class _Greeting extends StatelessWidget {
       children: [
         Text(
           greeting,
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           date,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 20),
       ],
@@ -182,13 +179,16 @@ class _TodayTasksCard extends ConsumerWidget {
               children: [
                 Icon(Icons.checklist, color: theme.colorScheme.primary),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Today', style: theme.textTheme.titleLarge)),
+                Expanded(
+                  child: Text('Today', style: theme.textTheme.titleLarge),
+                ),
                 Text(
                   progress.isEmpty
                       ? 'Nothing due'
                       : '${progress.done} of ${progress.total} done',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(color: theme.colorScheme.primary),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ],
             ),
@@ -214,8 +214,9 @@ class _TodayTasksCard extends ConsumerWidget {
                       ? 'Nothing due today.'
                       : 'All done for today.',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               )
             else ...[
@@ -241,9 +242,7 @@ class _TodayTasksCard extends ConsumerWidget {
                   child: TextButton.icon(
                     onPressed: () => context.go('/tasks'),
                     icon: const Icon(Icons.chevron_right, size: 18),
-                    label: Text(
-                      hidden > 0 ? '$hidden more' : 'See all',
-                    ),
+                    label: Text(hidden > 0 ? '$hidden more' : 'See all'),
                   ),
                 ),
             ],
@@ -299,8 +298,9 @@ class _RemindersCard extends StatelessWidget {
                 child: Text(
                   'No reminders in the next 24 hours.',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               )
             else ...[
@@ -366,9 +366,15 @@ class _DigestCard extends StatelessWidget {
     final rows = [
       (Icons.check_circle_outline, '${progress.done} completed today'),
       if (overdue > 0)
-        (Icons.error_outline, '$overdue task${overdue == 1 ? '' : 's'} overdue'),
+        (
+          Icons.error_outline,
+          '$overdue task${overdue == 1 ? '' : 's'} overdue',
+        ),
       if (reminders > 0)
-        (Icons.notifications_none, '$reminders reminder${reminders == 1 ? '' : 's'} coming up'),
+        (
+          Icons.notifications_none,
+          '$reminders reminder${reminders == 1 ? '' : 's'} coming up',
+        ),
       if (overdue == 0 && reminders == 0 && progress.done == 0)
         (Icons.wb_sunny_outlined, 'Nothing scheduled yet'),
     ];
@@ -384,8 +390,10 @@ class _DigestCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text('Morning digest',
-                      style: theme.textTheme.titleMedium),
+                  child: Text(
+                    'Morning digest',
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
                 IconButton(
                   tooltip: 'Dismiss for today',
@@ -452,8 +460,9 @@ class _InboxCard extends ConsumerWidget {
                   if (unread > 0)
                     Text(
                       '$unread unread',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(color: theme.colorScheme.primary),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
                 ],
               ),
@@ -464,9 +473,10 @@ class _InboxCard extends ConsumerWidget {
                   child: Text(
                     hasAccounts
                         ? 'No mail yet.'
-                        : 'Connect a Gmail or Outlook account in Settings.',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        : 'Connect a Gmail account in Settings.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               else

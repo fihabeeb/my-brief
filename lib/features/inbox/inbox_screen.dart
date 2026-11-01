@@ -50,8 +50,8 @@ class InboxScreen extends ConsumerWidget {
               title: hasAccounts ? 'No mail yet' : 'No account connected',
               detail: hasAccounts
                   ? 'New mail appears here after the next sync.'
-                  : 'Connect a Gmail or Outlook account in Settings to '
-                      'bring your mail into the dashboard.',
+                  : 'Connect a Gmail account in Settings to bring your mail '
+                        'into the dashboard.',
               action: hasAccounts
                   ? null
                   : (
@@ -118,14 +118,17 @@ class _EmailTile extends StatelessWidget {
         children: [
           Text(
             fmtWhen(email.receivedAt),
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           if (email.isImportant)
             Icon(Icons.star, size: 16, color: theme.colorScheme.primary),
         ],
       ),
-      onTap: email.webLink == null ? null : () => _open(context, email.webLink!),
+      onTap: email.webLink == null
+          ? null
+          : () => _open(context, email.webLink!),
     );
   }
 
@@ -173,8 +176,9 @@ class _Message extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               detail,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             if (action != null) ...[

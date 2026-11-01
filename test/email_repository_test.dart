@@ -78,14 +78,71 @@ void main() {
       expect(await repo.watchRecent().first, isEmpty);
     });
 
-    test('deleteAccountsExcept only drops what the server forgot', () async {
+    test('deleteAccountsExcept drops the account and its mail', () async {
       await repo.upsertAccount(account('a1', address: 'a@y.z'));
       await repo.upsertAccount(account('a2', address: 'b@y.z'));
+      await repo.upsertEmails([
+        mail('m1', account: 'a1'),
+        mail('m2', account: 'a2'),
+      ]);
 
       await repo.deleteAccountsExcept({'a2'});
 
       final kept = await repo.watchAccounts().first;
       expect(kept.map((a) => a.id), ['a2']);
+      expect((await repo.watchRecent().first).map((e) => e.id), ['m2']);
+    });
+
+    test('an empty server account list clears the local mirror', () async {
+      await repo.upsertAccount(account('a1'));
+      await repo.upsertEmails([mail('m1', account: 'a1')]);
+
+      await repo.deleteAccountsExcept(const {});
+
+      expect(await repo.watchAccounts().first, isEmpty);
+      expect(await repo.watchRecent().first, isEmpty);
+    });
+
+    test('a complete account window removes mail deleted at the provider',
+        () async {
+      await repo.upsertEmails([
+        mail('stale', account: 'a1'),
+        mail('kept', account: 'a1'),
+        mail('other', account: 'a2'),
+      ]);
+
+      await repo.reconcileAccountEmails(
+        'a1',
+        [mail('kept', account: 'a1')],
+        complete: true,
+      );
+
+      final kept = await repo.watchRecent().first;
+      expect(kept.map((e) => e.id), unorderedEquals(['kept', 'other']));
+    });
+
+    test('an empty complete window clears that account only', () async {
+      await repo.upsertEmails([
+        mail('m1', account: 'a1'),
+        mail('m2', account: 'a2'),
+      ]);
+
+      await repo.reconcileAccountEmails('a1', const [], complete: true);
+
+      expect((await repo.watchRecent().first).map((e) => e.id), ['m2']);
+    });
+
+    test('an incomplete window never deletes local mail', () async {
+      await repo.upsertEmails([mail('stale', account: 'a1')]);
+
+      await repo.reconcileAccountEmails(
+        'a1',
+        [mail('fresh', account: 'a1')],
+        complete: false,
+      );
+
+      final kept = await repo.watchRecent().first;
+      expect(kept.map((e) => e.id), unorderedEquals(['stale', 'fresh']));
     });
 
     test('unread count spans every connected mailbox', () async {

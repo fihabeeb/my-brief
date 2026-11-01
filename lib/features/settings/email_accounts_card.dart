@@ -24,7 +24,8 @@ class EmailAccountsCard extends ConsumerWidget {
     // Nothing rendered while loading rather than a spinner: this card sits on
     // a settings list that is already usable, and a flash of indeterminate
     // progress would say more than it knows.
-    final accounts = ref.watch(emailAccountsProvider).value ?? const <EmailAccount>[];
+    final accounts =
+        ref.watch(emailAccountsProvider).value ?? const <EmailAccount>[];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -38,17 +39,16 @@ class EmailAccountsCard extends ConsumerWidget {
             Text(
               'Mail is read into the dashboard. Nothing is ever sent from '
               'this app.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 4),
             for (final account in accounts)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                  account.provider == 'gmail'
-                      ? Icons.mail_outline
-                      : Icons.alternate_email,
+                  Icons.mail_outline,
                   color: theme.colorScheme.primary,
                 ),
                 title: Text(account.emailAddress),
@@ -60,20 +60,10 @@ class EmailAccountsCard extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _connect(context, 'gmail'),
-                  icon: const Icon(Icons.mail_outline, size: 18),
-                  label: const Text('Gmail'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _connect(context, 'outlook'),
-                  icon: const Icon(Icons.alternate_email, size: 18),
-                  label: const Text('Outlook'),
-                ),
-              ],
+            OutlinedButton.icon(
+              onPressed: () => _connect(context),
+              icon: const Icon(Icons.mail_outline, size: 18),
+              label: const Text('Connect Gmail'),
             ),
           ],
         ),
@@ -99,10 +89,12 @@ class EmailAccountsCard extends ConsumerWidget {
   /// The function mints the `state`, so a link opened from elsewhere cannot
   /// attach a mailbox to this account — the check lives where the JWT can be
   /// verified, not in a query parameter this app would be free to fake.
-  Future<void> _connect(BuildContext context, String provider) async {
+  Future<void> _connect(BuildContext context) async {
     try {
-      final result = await SupabaseService.client.functions
-          .invoke('oauth-start', body: {'provider': provider});
+      final result = await SupabaseService.client.functions.invoke(
+        'oauth-start',
+        body: {'provider': 'gmail'},
+      );
       final url = (result.data as Map?)?['authorize_url'] as String?;
       if (url == null) throw const FormatException('no authorisation URL');
 
@@ -113,23 +105,26 @@ class EmailAccountsCard extends ConsumerWidget {
       if (!ok) throw Exception('browser would not open');
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          'Could not start connecting ($e). The email functions may not be '
-          'deployed yet.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not start connecting ($e). The email functions may not be '
+            'deployed yet.',
+          ),
         ),
-      ));
+      );
     }
   }
 
-  Future<void> _disconnect(
-      BuildContext context, EmailAccount account) async {
+  Future<void> _disconnect(BuildContext context, EmailAccount account) async {
     // Captured before the first await: the dialog below suspends this method,
     // and both would otherwise be read off a context that may no longer be
     // mounted by the time the user answers.
     final messenger = ScaffoldMessenger.of(context);
-    final repo =
-        ProviderScope.containerOf(context, listen: false).read(emailRepositoryProvider);
+    final repo = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(emailRepositoryProvider);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -156,12 +151,14 @@ class EmailAccountsCard extends ConsumerWidget {
     try {
       // Revokes the tokens and deletes the row server-side first: removing it
       // locally alone would just bring it back on the next pull.
-      await SupabaseService.client.functions
-          .invoke('email-disconnect', body: {'account_id': account.id});
+      await SupabaseService.client.functions.invoke(
+        'email-disconnect',
+        body: {'account_id': account.id},
+      );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Could not disconnect ($e)'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not disconnect ($e)')),
+      );
       return;
     }
 

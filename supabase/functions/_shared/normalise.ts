@@ -1,22 +1,17 @@
-// Normalises provider mail into the one shape the `emails` table stores.
+// Normalises Gmail mail into the one shape the `emails` table stores.
 //
 // Deliberately free of Deno, Supabase or network imports: it is pure functions
 // over plain JSON, which is what lets it be unit-tested under Node against
 // recorded payloads (see normalise.test.ts). Only the Edge Function entry
 // points, which *are* Deno-specific, stay untested.
 //
-// This file is the specification for the whole inbox. Two behaviours are worth
-// calling out, because both are easy to get subtly wrong:
-//
-//   * Gmail's `internalDate` arrives as a **string** of milliseconds. Parsing
-//     it as an integer is fine; treating it as a number literal is not.
-//   * Graph's `importance` is a string enum ('low' | 'normal' | 'high'), not a
-//     boolean. Collapsing it to a truthiness check would mark everything
-//     normal as important.
+// One behaviour is worth calling out because it is easy to get subtly wrong:
+// Gmail's `internalDate` arrives as a **string** of milliseconds. Parsing it
+// as an integer is fine; treating it as a number literal is not.
 
-/** A provider-agnostic email, ready to be written to the database. */
+/** A normalised email, ready to be written to the database. */
 export interface NormalisedEmail {
-  /** Gmail's message id / Graph's message id. Unique per account. */
+  /** Gmail's message id. Unique per account. */
   providerMessageId: string;
   threadId: string | null;
   fromName: string | null;
@@ -140,9 +135,15 @@ function gmailHasAttachments(part: unknown): boolean {
  * sent mail, drafts, chat, and anything in the bin or spam. Those arrive
  * through `history.list` alongside real inbox changes, so filtering them here
  * is what keeps a self-addressed note from appearing as incoming mail.
+ *
+ * `hasAttachments` is optional because sync uses `format=metadata`, which does
+ * not include MIME parts. In that case the caller supplies the result of a
+ * `has:attachment` search. It is left undefined in unit tests and other callers
+ * so the MIME-part fallback still works.
  */
 export function normaliseGmailMessage(
   message: Record<string, unknown>,
+  hasAttachments?: boolean,
 ): NormalisedEmail | null {
   const providerMessageId = text(message["id"]);
   if (providerMessageId === null) return null;
@@ -181,48 +182,9 @@ export function normaliseGmailMessage(
     // Gmail marks what is *unread*, so the flag is inverted.
     isRead: !labels.includes("UNREAD"),
     isImportant: labels.includes("IMPORTANT"),
-    hasAttachments: Array.isArray(parts)
-      ? parts.some(gmailHasAttachments)
-      : false,
+    hasAttachments: hasAttachments ??
+      (Array.isArray(parts) ? parts.some(gmailHasAttachments) : false),
     // `#all/` rather than `#inbox/`, so an archived message still opens.
     webLink: `https://mail.google.com/mail/u/0/#all/${providerMessageId}`,
-  };
-}
-
-interface GraphRecipient {
-  emailAddress?: { address?: unknown; name?: unknown };
-}
-
-/**
- * Normalises a Microsoft Graph message.
- *
- * Always succeeds — Graph returns a complete record, so unlike Gmail there is
- * nothing here that can legitimately be skipped.
- */
-export function normaliseGraphMessage(
-  message: Record<string, unknown>,
-): NormalisedEmail {
-  const providerMessageId = text(message["id"]) ?? "";
-  const fromRaw = message["from"] as GraphRecipient | undefined;
-  const fromAddress = fromRaw?.emailAddress;
-
-  const receivedRaw = text(message["receivedDateTime"]);
-  const receivedAt = receivedRaw === null ? new Date(0) : new Date(receivedRaw);
-
-  return {
-    providerMessageId,
-    threadId: text(message["conversationId"]),
-    fromName: text(fromAddress?.name),
-    fromEmail: text(fromAddress?.address),
-    subject: text(message["subject"]) ?? "",
-    snippet: text(message["bodyPreview"]),
-    // Graph's importance is an enum; only "high" should raise a flag.
-    receivedAt: Number.isFinite(receivedAt.getTime())
-      ? receivedAt.toISOString()
-      : new Date(0).toISOString(),
-    isRead: message["isRead"] === true,
-    isImportant: text(message["importance"]) === "high",
-    hasAttachments: message["hasAttachments"] === true,
-    webLink: text(message["webLink"]),
   };
 }

@@ -40,12 +40,12 @@ class Reminders extends Table {
 
 /// An OAuth-connected mailbox.
 ///
-/// Written in two places: the client creates and deletes the row when the user
-/// connects or disconnects, and the Edge Function updates the sync position
-/// and health. That split is why accounts bypass the LWW outbox used by tasks
-/// and reminders — two writers racing through a client-side outbox would
-/// overwrite each other's fields. Tokens are never stored here; `secretRef`
-/// names the Supabase Vault entry that holds them.
+/// The Edge Functions are the only server-side writers: the OAuth callback
+/// creates or refreshes the row, sync updates its position and health, and
+/// disconnect removes it. The client pulls the row into this local mirror and
+/// deletes it only after the server row is gone. Accounts therefore bypass the
+/// LWW outbox used by tasks and reminders. Tokens are never stored here;
+/// `secretRef` names the Supabase Vault entry that holds them.
 class EmailAccounts extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text()();
@@ -57,8 +57,7 @@ class EmailAccounts extends Table {
   TextColumn get status => text().withDefault(const Constant('connected'))();
   TextColumn get lastError => text().nullable()();
 
-  /// Opaque provider-specific sync position — Gmail's historyId, Graph's
-  /// delta token. Only the Edge Function reads it.
+  /// Opaque Gmail sync position. Only the Edge Function reads it.
   TextColumn get syncCursor => text().nullable()();
   DateTimeColumn get lastSyncedAt => dateTime().nullable()();
   TextColumn get secretRef => text()();
@@ -90,7 +89,8 @@ class Emails extends Table {
   DateTimeColumn get receivedAt => dateTime()();
   BoolColumn get isRead => boolean().withDefault(const Constant(false))();
   BoolColumn get isImportant => boolean().withDefault(const Constant(false))();
-  BoolColumn get hasAttachments => boolean().withDefault(const Constant(false))();
+  BoolColumn get hasAttachments =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get webLink => text().nullable()();
   DateTimeColumn get fetchedAt => dateTime()();
 

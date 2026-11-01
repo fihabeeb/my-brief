@@ -30,8 +30,8 @@ class EmailSyncService {
   Future<void> syncNow() async {
     if (!_enabled || _uid.isEmpty) return;
     final uid = _uid;
-    await _pullAccounts(uid);
-    await _pullEmails(uid);
+    final accountIds = await _pullAccounts(uid);
+    await _pullEmails(uid, accountIds);
     await _repo.pruneTo(_limit);
   }
 
@@ -39,11 +39,15 @@ class EmailSyncService {
   /// forgotten — the user disconnected it on another device. Safe to delete
   /// on mismatch here because the client never creates an account of its own;
   /// the Edge Function is what writes one, once OAuth has told it the address.
-  Future<void> _pullAccounts(String uid) async {
+  ///
+  /// Returns the account ids so the mail pull can reconcile each mailbox
+  /// separately against the server's complete retained window.
+  Future<List<String>> _pullAccounts(String uid) async {
     final remote = await SupabaseService.client
         .from('email_accounts')
         .select()
         .eq('user_id', uid)
+        .eq('provider', 'gmail')
         .order('email_address', ascending: true);
 
     final keep = <String>{};
@@ -54,21 +58,33 @@ class EmailSyncService {
       await _repo.upsertAccount(account);
     }
     await _repo.deleteAccountsExcept(keep);
+    return keep.toList();
   }
 
-  Future<void> _pullEmails(String uid) async {
-    final remote = await SupabaseService.client
-        .from('emails')
-        .select()
-        .eq('user_id', uid)
-        .order('received_at', ascending: false)
-        .limit(_limit);
+  /// Pulls one account at a time so a row missing from the server window can
+  /// be treated as deleted. The server retains the newest 200 messages per
+  /// account, and we ask for one extra row: if it comes back, retention is
+  /// not behaving as expected and deleting would be unsafe.
+  Future<void> _pullEmails(String uid, List<String> accountIds) async {
+    for (final accountId in accountIds) {
+      final remote = await SupabaseService.client
+          .from('emails')
+          .select()
+          .eq('user_id', uid)
+          .eq('account_id', accountId)
+          .order('received_at', ascending: false)
+          .limit(_limit + 1);
 
-    final rows = <Insertable<Email>>[
-      for (final raw in remote) _email(Map<String, dynamic>.from(raw as Map)),
-    ];
-    if (rows.isEmpty) return;
-    await _repo.upsertEmails(rows);
+      final rows = <EmailsCompanion>[
+        for (final raw in remote)
+          _email(Map<String, dynamic>.from(raw as Map)),
+      ];
+      await _repo.reconcileAccountEmails(
+        accountId,
+        rows,
+        complete: rows.length <= _limit,
+      );
+    }
   }
 
   EmailAccountsCompanion _account(Map<String, dynamic> row) =>

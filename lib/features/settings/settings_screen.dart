@@ -190,7 +190,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 12),
           Text(
-            'My Brief — Phase 0 foundation',
+            'My Brief — Phase 4 email',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),

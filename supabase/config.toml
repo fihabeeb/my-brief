@@ -1,0 +1,20 @@
+# Supabase CLI configuration for My Brief.
+#
+# The project reference is written by `supabase link`; this local project id
+# only names the local stack. Function-level JWT settings are what matter for
+# deployment: the browser callback and the cron sync cannot carry a user JWT,
+# so they authenticate themselves.
+
+project_id = "mybrief"
+
+[functions.oauth-start]
+verify_jwt = true
+
+[functions.oauth-callback]
+verify_jwt = false
+
+[functions.email-disconnect]
+verify_jwt = true
+
+[functions.email-sync]
+verify_jwt = false
